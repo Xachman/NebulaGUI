@@ -9,8 +9,9 @@ from nebula import runNebula
 import threading
 import os
 from plyer import filechooser
-from kivy.storage.jsonstore import JsonStore
+from storage import Storage
 
+store = Storage()
 
 if os.name == 'nt':
     windowsStartup()
@@ -27,11 +28,10 @@ class NebulaGUI(BoxLayout):
 
     def __init__(self, *args, **kwargs):
         super(NebulaGUI, self).__init__(*args, **kwargs)
-        store = JsonStore('nebula_gui.json')
         if store.exists('executable_path'):
-            self.executablePath = store.get('executable_path')['name']
-        if 'config_path' in store:
-            self.configPath = store['config_path']['name']
+            self.executablePath = store.get('executable_path')
+        if store.exists('config_path'):
+            self.configPath = store.get('config_path')
 
     def changeState(self, state):
         self.state = state 
@@ -56,17 +56,15 @@ class NebulaGUI(BoxLayout):
         paths = filechooser.open_file(title="Choose Nebula Executable")
 
         if len(paths) > 0:
-            store = JsonStore('nebula_gui.json')
-            store.put('executable_path', name= paths[0])
-            self.executablePath = store['executable_path']['name']
+            store.add('executable_path', paths[0])
+            self.executablePath = store.get('executable_path')
 
     def chooseConfig(self):
         paths = filechooser.open_file(title="Choose Nebula Config")
         
         if len(paths) > 0:
-            store = JsonStore('nebula_gui.json')
-            store.put('config_path', name= paths[0])
-            self.configPath = store['config_path']['name']
+            store.add('config_path', paths[0])
+            self.configPath = store.get('config_path')
 
 class NebulaGUIApp(App):
     def build(self):
