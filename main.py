@@ -1,75 +1,67 @@
-from kivy.app import App
-from kivy.lang import Builder
-from kivy.uix.popup import Popup
-from kivy.uix.boxlayout import BoxLayout
-from kivy.properties import StringProperty, ObjectProperty
-from kivy.core.window import Window
-from windows import windowsStartup
+
+from windows import is_admin
 from nebula import runNebula
 import threading
 import os
-from plyer import filechooser
 from storage import Storage
+import pystray
+from PIL import Image, ImageDraw
+from pystray import Menu, MenuItem
+from settings import SettingsApp
 
 store = Storage()
+thread = None
+logStr = ''
 
-if os.name == 'nt':
-    windowsStartup()
+def create_image(color=250):
+    # Generate an image and draw a pattern
+    width=16
+    height=16
+    color1=20
+    color2=color
+    image = Image.new('RGB', (width, height), color1)
+    dc = ImageDraw.Draw(image)
+    dc.rectangle(
+        (width // 2, 0, width, height // 2),
+        fill=color2)
+    dc.rectangle(
+        (0, height // 2, width // 2, height),
+        fill=color2)
 
-class NebulaGUI(BoxLayout):
-    state = StringProperty("off")
-    logs = StringProperty()
-    executablePath = StringProperty("No Executable Selected")
-    configPath = StringProperty("No Config Selected")
-    the_popup = ObjectProperty(None)
-    thread = None
-    shouldDisconnect = False
-    config = StringProperty()
+    return image
 
-    def __init__(self, *args, **kwargs):
-        super(NebulaGUI, self).__init__(*args, **kwargs)
-        if store.exists('executable_path'):
-            self.executablePath = store.get('executable_path')
-        if store.exists('config_path'):
-            self.configPath = store.get('config_path')
-
-    def changeState(self, state):
-        self.state = state 
-
-    def connect(self):
-        if self.state == "off":
-            self.changeState("on") 
-            print(self.state)
-            self.thread = threading.Thread(target=runNebula, args=("nebula", self.log, self.executablePath, self.configPath))
-            self.thread.daemon = True
-            self.thread.start()
-
-    def disconnect(self):
-        pass
-
-    def log(self, line):
-        if line.decode('utf-8') != "":
-            print(line.decode('utf-8'))
-
-
-    def chooseExecutable(self):
-        paths = filechooser.open_file(title="Choose Nebula Executable")
-
-        if len(paths) > 0:
-            store.add('executable_path', paths[0])
-            self.executablePath = store.get('executable_path')
-
-    def chooseConfig(self):
-        paths = filechooser.open_file(title="Choose Nebula Config")
-        
-        if len(paths) > 0:
-            store.add('config_path', paths[0])
-            self.configPath = store.get('config_path')
-
-class NebulaGUIApp(App):
-    def build(self):
-        return NebulaGUI()
-
+def setup(icon):
+    icon.visible = True
+def log(line):
+    global logStr
+    if line.decode('utf-8') != '':
+        logStr=logStr+line.decode('utf-8')
+        print(line.decode('utf-8'))
+def connect(icon, item):
+    global thread
+    if thread is None:
+        thread = threading.Thread(target=runNebula, args=("nebula", log, store.get('executable_path'), store.get('config_path')))
+        thread.daemon = True
+        thread.start()
+        icon.icon = create_image((51,255,51))
+def settings(icon, item):
+    SettingsApp().run()
+def quit(icon, item):
+    icon.stop()
+def menu():
+    return Menu(
+    MenuItem(
+        'Connect',
+        connect),
+    MenuItem(
+        'Settings',
+        settings),
+    MenuItem(
+        'Quit',
+        quit)
+        )
 
 if __name__ == '__main__':
-    NebulaGUIApp().run()
+    icon = pystray.Icon('test name', create_image(), menu=menu())
+    #create_image().show()
+    icon.run(setup)
